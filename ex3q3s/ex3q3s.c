@@ -9,28 +9,37 @@
 
 #define MSG_LEN 255
 
+typedef struct ParallelSortableArray {
+    int size;
+    int parallelLevel;
+    int *nums;
+} ParallelSortableArray;
 
 void myRecMerge(int *nums, int size, int splitLevel, int startIndex);
 void myMerge(int *nums, int size);
 void error(char *msg);
-int digits(int num);
-void stringify(int *nums, int size, char* output);
-int chars(int* nums, int size);
-void saveToArray(const char *string, int size, int *nums);
-
-
+ParallelSortableArray getPArrFromFile(const char *fileName) {
+    ParallelSortableArray pArr;
+    FILE* fp = fopen(fileName, "r");
+    fscanf(fp, "%d", &pArr.size);
+    fscanf(fp, "%d", &pArr.parallelLevel);
+    
+    pArr.nums = malloc(pArr.size * sizeof(int));
+    fscanf(fp, "%d", &pArr.nums[0]);
+    for (int i = 1; i < pArr.size; ++i)
+        fscanf(fp, ",%d", &pArr.nums[i]);
+    
+    fclose(fp);
+    return pArr;
+}
+char *getIPAddress(struct sockaddr *cli_addr) {
+    struct sockaddr_in* pV4Addr = (struct sockaddr_in*)cli_addr;
+    struct in_addr ipAddr = pV4Addr->sin_addr;
+    char* ip = malloc(sizeof(char) * INET_ADDRSTRLEN);
+    inet_ntop(AF_INET, &ipAddr, ip, INET_ADDRSTRLEN);
+    return ip;
+}
 int main(int argc, char **argv) {
-    int size, splitLevel;
-    FILE* fp = fopen(argv[2], "r");
-    fscanf(fp, "%d", &size);
-    fscanf(fp, "%d", &splitLevel);
-    int nums[size], i;
-    for (i = 0; i < size - 1; ++i)
-        fscanf(fp, "%d,", &nums[i]);
-    fscanf(fp, "%d", &nums[i]);
-    int length = size / splitLevel;
-
-    char buffer[MSG_LEN];
     struct sockaddr cli_addr;
     socklen_t clilen;
 
@@ -46,56 +55,55 @@ int main(int argc, char **argv) {
     if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
         error("ERROR on binding");
 
-    listen(sockfd,splitLevel);
-    int sockfds[splitLevel];
+    ParallelSortableArray pArr = getPArrFromFile(argv[2]);
+    int length = pArr.size / pArr.parallelLevel;
 
-    printf("Amount of numbers that sort: %d\n", size);
-    printf("Degree of parallelism: %d\n", splitLevel);
-    printf("Before sort: %d", nums[0]);
-    for (i = 1; i < size; ++i)
-        printf(",%d", nums[i]);
+    listen(sockfd,pArr.parallelLevel);
+    int sockfds[pArr.parallelLevel];
+    printf("Amount of numbers that sort: %d\n", pArr.size);
+    printf("Degree of parallelism: %d\n", pArr.parallelLevel);
+    printf("Before sort: %d", pArr.nums[0]);
+    for (int i = 1; i < pArr.size; ++i)
+        printf(",%d", pArr.nums[i]);
 
-    for (i = 0; i < splitLevel; ++i) {
+    for (int i = 0; i < pArr.parallelLevel; ++i) {
         sockfds[i] = accept(sockfd, &cli_addr, &clilen);
         if (sockfds[i] < 0)
             perror("ERROR on accept");
+        char tmpBuffer[1];
+        read(sockfds[i], tmpBuffer, 1);
+        write(sockfds[i], pArr.nums + (i * length), length * sizeof(int));
 
-        read(sockfds[i], buffer, MSG_LEN);
-
-        int outLen = chars(nums + (i * length), length);
-        char output[outLen];
-        stringify(nums + (i * length), length, output);
-        fflush(stdout);
-        write(sockfds[i], output, outLen);
-
-        struct sockaddr_in* pV4Addr = (struct sockaddr_in*)&cli_addr;
-        struct in_addr ipAddr = pV4Addr->sin_addr;
-        char str[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &ipAddr, str, INET_ADDRSTRLEN);
-
-        printf("\nGot request from %s", str);
+        char *ip = getIPAddress(&cli_addr);
+        printf("\nGot request from %s", ip);
+        free(ip);
 
         printf("\nSending '%d' numbers to socket '%d'", length, sockfds[i]);
         fflush(stdout);
     }
-    for (i = 0; i < splitLevel; ++i) {
-        int outLen = chars(nums + (i * length), length);
-        char input[outLen];
-        read(sockfds[i], input, outLen);
-        printf("\nRead from socket: '%d'\n%s", sockfds[i], input);
-        fflush(stdout);
-        saveToArray(input, length, nums + (i * length));
+    for (int i = 0; i < pArr.parallelLevel; ++i) {
+        int input[length];
+        read(sockfds[i], input, length * sizeof(int));
+        printf("\nRead from socket: '%d'\n%d", sockfds[i], input[0]);
+
+        for (int j = 1; j < length; ++j) {
+            printf(",%d", input[j]);
+        }
+        for (int j = 0; j < length; ++j) {
+            pArr.nums[(i * length) + j] = input[j];
+        }
         close(sockfds[i]);
     }
 
-    myRecMerge(nums, size, splitLevel, 0);
+    myRecMerge(pArr.nums, pArr.size, pArr.parallelLevel, 0);
 
-    printf("\nFinal answer: ");
-    for (i = 0; i < size - 1; ++i)
-        printf("%d,", nums[i]);
+    printf("\nFinal answer: %d", pArr.nums[0]);
+    for (int i = 1; i < pArr.size; ++i)
+        printf(",%d", pArr.nums[i]);
 
-    printf("%d\n", nums[size - 1]);
+    printf("\n");
     close(sockfd);
+    free(pArr.nums);
     return 0;
 }
 void myRecMerge(int *nums, int size, int splitLevel, int startIndex) {
@@ -133,52 +141,7 @@ void myMerge(int *nums, int size) {
     for (i = 0; i < size; ++i)
         nums[i] = mergedNums[i];
 }
-int comparator(const void* a, const void* b) {
-    int num1 = *(const int *)a;
-    int num2 = *(const int *)b;
-    if (num1 > num2)
-        return 1;
-    if (num1 == num2)
-        return 0;
-    return -1;
-}
-
 void error(char *msg) {
     perror(msg);
     exit(1);
-}
-int digits(int num) {
-    if (num <= 9)
-        return 1;
-
-    int n = 0;
-    while (num != 0) {
-        n++;
-        num /= 10;
-    }
-    return n;
-}
-void stringify(int *nums, int size, char* output) {
-    char buff[10];
-    int k = 0;
-    for (int i = 0; i < size; ++i) {
-        sprintf(buff, "%d", nums[i]);
-        int d = digits(nums[i]);
-        for (int j = 0; j < d; ++j, k++)
-            output[k] = buff[j];
-        output[k++] = ',';
-    }
-    output[k - 1] = '\0';
-}
-int chars(int* nums, int size) {
-    int cs = 0;
-    for (int i = 0; i < size; ++i)
-        cs += digits(nums[i]) + 1;
-    return cs;
-}
-void saveToArray(const char *string, int size, int *nums) {
-    for (int i = 0, currentSize = 0; i < size; ++i) {
-        sscanf(string + currentSize, "%d,", &nums[i]);
-        currentSize += digits(nums[i]) + 1;
-    }
 }
