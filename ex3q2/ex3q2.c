@@ -8,42 +8,41 @@ typedef struct ArrAndSize {
     int size;
 } ArrAndSize;
 
+typedef struct ParallelSortableArray {
+    int size;
+    int parallelLevel;
+    int *nums;
+} ParallelSortableArray;
+
 int comparator(const void* a, const void* b);
 void myMergeSort(pthread_t *threads, int* nums, int size, int splitLevel, int startIndex);
 void myRecMerge(int *nums, int size, int splitLevel, int startIndex);
 void myMerge(int *nums, int size);
+ParallelSortableArray getPArrFromFile(const char *fileName);
 
 int main(int argc, char **argv) {
-    int size, splitLevel;
-    FILE* fp = fopen(argv[1], "r");
-    fscanf(fp, "%d", &size);
-    fscanf(fp, "%d", &splitLevel);
-    int nums[size], i;
-    for (i = 0; i < size - 1; ++i)
-        fscanf(fp, "%d,", &nums[i]);
-    fscanf(fp, "%d", &nums[i]);
+    ParallelSortableArray pArr = getPArrFromFile(argv[1]);
 
-
-    printf("Amount of numbers that sort: %d\n", size);
-    printf("Degree of parallelism: %d\n", splitLevel);
-    printf("Before sort: %d", nums[0]);
-    for (i = 1; i < size; ++i)
-        printf(",%d", nums[i]);
+    printf("Amount of numbers that sort: %d\n", pArr.size);
+    printf("Degree of parallelism: %d\n", pArr.parallelLevel);
+    printf("Before sort: %d", pArr.nums[0]);
+    for (int i = 1; i < pArr.size; ++i)
+        printf(",%d", pArr.nums[i]);
     fflush(stdout);
 
-    pthread_t threads[splitLevel];
+    pthread_t threads[pArr.parallelLevel];
 
-    myMergeSort(threads, nums, size, splitLevel, 0);
+    myMergeSort(threads, pArr.nums, pArr.size, pArr.parallelLevel, 0);
 
-    for (i = 0; i < splitLevel; ++i)
+    for (int i = 0; i < pArr.parallelLevel; ++i)
         pthread_join(threads[i], NULL);
 
-    myRecMerge(nums, size, splitLevel, 0);
+    myRecMerge(pArr.nums, pArr.size, pArr.parallelLevel, 0);
 
-    printf("\nAfter sort: %d", nums[0]);
+    printf("\nAfter sort: %d", pArr.nums[0]);
 
-    for (i = 1; i < size; ++i)
-        printf(",%d", nums[i]);
+    for (int i = 1; i < pArr.size; ++i)
+        printf(",%d", pArr.nums[i]);
 }
 
 void myMerge(int *nums, int size) {
@@ -111,4 +110,18 @@ void myMergeSort(pthread_t *threads, int* nums, int size, int splitLevel, int st
         myMergeSort(threads, nums, size / 2, splitLevel / 2, startIndex);
         myMergeSort(threads, nums, size / 2, splitLevel / 2, startIndex + (size / 2));
     }
+}
+ParallelSortableArray getPArrFromFile(const char *fileName) {
+    ParallelSortableArray pArr;
+    FILE* fp = fopen(fileName, "r");
+    fscanf(fp, "%d", &pArr.size);
+    fscanf(fp, "%d", &pArr.parallelLevel);
+
+    pArr.nums = malloc(pArr.size * sizeof(int));
+    fscanf(fp, "%d", &pArr.nums[0]);
+    for (int i = 1; i < pArr.size; ++i)
+        fscanf(fp, ",%d", &pArr.nums[i]);
+
+    fclose(fp);
+    return pArr;
 }
