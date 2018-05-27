@@ -5,7 +5,6 @@
 #include <sys/wait.h>
 #include <sys/shm.h>
 #include <sys/ipc.h>
-#include <sys/types.h>
 
 #define PATH "/tmp"
 #define C 'b'
