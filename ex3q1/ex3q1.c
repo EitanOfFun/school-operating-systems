@@ -16,7 +16,7 @@ typedef struct {
 } Shm;
 
 typedef struct ParallelSortableArray {
-    int size;
+    size_t size;
     int parallelLevel;
     int *nums;
 } ParallelSortableArray;
@@ -24,9 +24,9 @@ typedef struct ParallelSortableArray {
 Shm mallocShm(const char* path, char c, int permissions, size_t size);
 void deleteShm(Shm s);
 void clearShm(Shm s);
-void myParMergeSort(int *nums, int size, int splitLevel);
-void myParRecMerge(int *nums, int size, int splitLevel);
-void myMerge(int *nums, int size);
+void myParMergeSort(int *nums, size_t size, int splitLevel);
+void myParRecMerge(int *nums, size_t size, int splitLevel);
+void myMerge(int *nums, size_t size);
 ParallelSortableArray getPArrFromFile(const char *fileName);
 
 int main(int argc, char **argv) {
@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
     for (int i = 0; i < pArr.size; ++i)
         shm_ptr[i] = pArr.nums[i];
 
-    printf("Amount of numbers that sort: %d\n", pArr.size);
+    printf("Amount of numbers that sort: %zu\n", pArr.size);
     printf("Degree of parallelism: %d\n", pArr.parallelLevel);
     printf("Before sort: %d", shm_ptr[0]);
     for (int i = 1; i < pArr.size; ++i)
@@ -84,9 +84,9 @@ void myRecSort(int *nums, size_t size) {
  * @param nums array to merge
  * @param size
  */
-void myMerge(int *nums, int size) {
+void myMerge(int *nums, size_t size) {
     int mergedNums[size];
-    int i = 0, j = size / 2, k;
+    size_t i = 0, j = size / 2, k;
     for (k = 0; i < size / 2 && j < size; k++) {
         if (nums[i] < nums[j]) {
             mergedNums[k] = nums[i];
@@ -116,7 +116,7 @@ void myMerge(int *nums, int size) {
  * @param size
  * @param splitLevel
  */
-void myParRecMerge(int *nums, int size, int splitLevel) {
+void myParRecMerge(int *nums, size_t size, int splitLevel) {
     if (splitLevel == 1)
         return;
     else {
@@ -125,14 +125,13 @@ void myParRecMerge(int *nums, int size, int splitLevel) {
         myMerge(nums, size);
     }
 }
-
 /**
  * Parallel Merge sort algorithm using fork() for every portion of array
  * @param nums array to sort
  * @param size size of array to sort
  * @param splitLevel amount of process and portions of array to split array into
  */
-void myParMergeSort(int *nums, int size, int splitLevel) {
+void myParMergeSort(int *nums, size_t size, int splitLevel) {
     if (splitLevel == 1) {
         pid_t pid = fork();
         if (pid == -1)
@@ -202,7 +201,7 @@ void clearShm(Shm s) {
 ParallelSortableArray getPArrFromFile(const char *fileName) {
     ParallelSortableArray pArr;
     FILE* fp = fopen(fileName, "r");
-    fscanf(fp, "%d", &pArr.size);
+    fscanf(fp, "%zu", &pArr.size);
     fscanf(fp, "%d", &pArr.parallelLevel);
 
     pArr.nums = malloc(pArr.size * sizeof(int));

@@ -11,7 +11,7 @@
 
 
 void error(char *msg);
-void myMergeSort(int *nums, size_t size, int startIndex);
+void myRecSort(int *nums, size_t size);
 void myMerge(int *nums, size_t size);
 
 int main(int argc, char *argv[]) {
@@ -47,31 +47,42 @@ int main(int argc, char *argv[]) {
     ssize_t rc = read(sockfd, nums, MSG_LEN);
     size_t length = rc / sizeof(int);
 
-    printf("\ngot from server: \n%d", nums[0]);
-    for (int j = 1; j < length; ++j) {
-        printf(",%d", nums[j]);
-    }
-    myMergeSort(nums, length, 0);
+    printf("Array recived: %d", nums[0]);
+    for (int i = 1; i < length; ++i)
+        printf(",%d", nums[i]);
 
-    printf("\nsorted: %d", nums[0]);
-    for (int j = 1; j < length; ++j) {
-        printf(",%d", nums[j]);
-    }
+    myRecSort(nums, length);
+
+    printf("\nArray Send: %d", nums[0]);
+    for (int i = 1; i < length; ++i)
+        printf(",%d", nums[i]);
+
     printf("\n");
     write(sockfd, nums, (size_t) rc);
 
     close(sockfd);
     return 0;
 }
-void myMergeSort(int *nums, size_t size, int startIndex) {
+/**
+ * Simple merge sort algorithm to sort each portion of array (not in parallel)
+ * @param nums array
+ * @param size of array
+ */
+void myRecSort(int *nums, size_t size) {
     if (size == 1)
         return;
     else {
-        myMergeSort(nums, size / 2, startIndex);
-        myMergeSort(nums, size / 2, startIndex + (size / 2));
-        myMerge(nums + startIndex, size);
+        myRecSort(nums, size / 2);
+        myRecSort(nums + (size / 2), size / 2);
+        myMerge(nums, size);
     }
 }
+/**
+ * Simple merge algorithm (special case of arrays who are of size = x^2)
+ * Merges to halves of an array (which are already sorted)
+ * @param nums array to merge
+ * @param size
+ */
 void myMerge(int *nums, size_t size) {
     int mergedNums[size];
     size_t i = 0, j = size / 2, k;

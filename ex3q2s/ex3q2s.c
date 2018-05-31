@@ -1,46 +1,26 @@
 #include <stdio.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define MSG_LEN 255
-
 typedef struct ParallelSortableArray {
-    int size;
+    size_t size;
     int parallelLevel;
     int *nums;
 } ParallelSortableArray;
 
-void myRecMerge(int *nums, int size, int splitLevel, int startIndex);
-void myMerge(int *nums, int size);
+void myParRecMerge(int *nums, size_t size, int splitLevel);
+void myMerge(int *nums, size_t size);
 void error(char *msg);
-ParallelSortableArray getPArrFromFile(const char *fileName) {
-    ParallelSortableArray pArr;
-    FILE* fp = fopen(fileName, "r");
-    fscanf(fp, "%d", &pArr.size);
-    fscanf(fp, "%d", &pArr.parallelLevel);
-    
-    pArr.nums = malloc(pArr.size * sizeof(int));
-    fscanf(fp, "%d", &pArr.nums[0]);
-    for (int i = 1; i < pArr.size; ++i)
-        fscanf(fp, ",%d", &pArr.nums[i]);
-    
-    fclose(fp);
-    return pArr;
-}
-char *getIPAddress(struct sockaddr *cli_addr) {
-    struct sockaddr_in* pV4Addr = (struct sockaddr_in*)cli_addr;
-    struct in_addr ipAddr = pV4Addr->sin_addr;
-    char* ip = malloc(sizeof(char) * INET_ADDRSTRLEN);
-    inet_ntop(AF_INET, &ipAddr, ip, INET_ADDRSTRLEN);
-    return ip;
-}
+char *getIPAddress(struct sockaddr_in *cli_addr);
+ParallelSortableArray getPArrFromFile(const char *fileName);
+
 int main(int argc, char **argv) {
-    struct sockaddr cli_addr;
+    struct sockaddr_in cli_addr;
     socklen_t clilen;
 
     int sockfd = socket(AF_INET,SOCK_STREAM,0);
@@ -50,24 +30,25 @@ int main(int argc, char **argv) {
     struct sockaddr_in serv_addr;
     serv_addr.sin_family = AF_INET;
     serv_addr.sin_addr.s_addr = INADDR_ANY;
-    serv_addr.sin_port = htons(atoi(argv[1]));
+    serv_addr.sin_port = htons(atoi(argv[2]));
 
     if (bind(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
         error("ERROR on binding");
 
-    ParallelSortableArray pArr = getPArrFromFile(argv[2]);
-    int length = pArr.size / pArr.parallelLevel;
+    ParallelSortableArray pArr = getPArrFromFile(argv[1]);
+    size_t length = pArr.size / pArr.parallelLevel;
 
     listen(sockfd,pArr.parallelLevel);
     int sockfds[pArr.parallelLevel];
-    printf("Amount of numbers that sort: %d\n", pArr.size);
+
+    printf("Amount of numbers that sort: %zu\n", pArr.size);
     printf("Degree of parallelism: %d\n", pArr.parallelLevel);
     printf("Before sort: %d", pArr.nums[0]);
     for (int i = 1; i < pArr.size; ++i)
         printf(",%d", pArr.nums[i]);
 
     for (int i = 0; i < pArr.parallelLevel; ++i) {
-        sockfds[i] = accept(sockfd, &cli_addr, &clilen);
+        sockfds[i] = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
         if (sockfds[i] < 0)
             perror("ERROR on accept");
         char tmpBuffer[1];
@@ -78,7 +59,7 @@ int main(int argc, char **argv) {
         printf("\nGot request from %s", ip);
         free(ip);
 
-        printf("\nSending '%d' numbers to socket '%d'", length, sockfds[i]);
+        printf("\nSending '%zu' numbers to socket '%d'", length, sockfds[i]);
         fflush(stdout);
     }
     for (int i = 0; i < pArr.parallelLevel; ++i) {
@@ -95,7 +76,7 @@ int main(int argc, char **argv) {
         close(sockfds[i]);
     }
 
-    myRecMerge(pArr.nums, pArr.size, pArr.parallelLevel, 0);
+    myParRecMerge(pArr.nums, pArr.size, pArr.parallelLevel);
 
     printf("\nFinal answer: %d", pArr.nums[0]);
     for (int i = 1; i < pArr.size; ++i)
@@ -106,18 +87,63 @@ int main(int argc, char **argv) {
     free(pArr.nums);
     return 0;
 }
-void myRecMerge(int *nums, int size, int splitLevel, int startIndex) {
+/**
+ * Helper function to create the ParallelSortableArray struct from a file in the format of
+ * <array size>
+ * <parallelLevel>
+ * <nums> (Array of ints)
+ * @param fileName
+ * @return ParallelSortableArray
+ */
+ParallelSortableArray getPArrFromFile(const char *fileName) {
+    ParallelSortableArray pArr;
+    FILE* fp = fopen(fileName, "r");
+    fscanf(fp, "%zu", &pArr.size);
+    fscanf(fp, "%d", &pArr.parallelLevel);
+
+    pArr.nums = malloc(pArr.size * sizeof(int));
+    fscanf(fp, "%d", &pArr.nums[0]);
+    for (int i = 1; i < pArr.size; ++i)
+        fscanf(fp, ",%d", &pArr.nums[i]);
+
+    fclose(fp);
+    return pArr;
+}
+/**
+ * Helper function to get IP address as a string
+ * @param cli_addr
+ * @return
+ */
+char *getIPAddress(struct sockaddr_in *cli_addr) {
+    char* ip = malloc(sizeof(char) * INET_ADDRSTRLEN + 1);
+    inet_ntop(AF_INET, &cli_addr->sin_addr, ip, INET_ADDRSTRLEN + 1);
+    return ip;
+}
+
+/**
+ *
+ * @param nums
+ * @param size
+ * @param splitLevel
+ */
+void myParRecMerge(int *nums, size_t size, int splitLevel) {
     if (splitLevel == 1)
         return;
     else {
-        myRecMerge(nums, size / 2, splitLevel / 2, startIndex);
-        myRecMerge(nums, size / 2, splitLevel / 2, startIndex + (size / 2));
-        myMerge(nums + startIndex, size);
+        myParRecMerge(nums, size / 2, splitLevel / 2);
+        myParRecMerge(nums + (size / 2), size / 2, splitLevel / 2);
+        myMerge(nums, size);
     }
 }
-void myMerge(int *nums, int size) {
+/**
+ * Simple merge algorithm (special case of arrays who are of size = x^2)
+ * Merges to halves of an array (which are already sorted)
+ * @param nums array to merge
+ * @param size
+ */
+void myMerge(int *nums, size_t size) {
     int mergedNums[size];
-    int i = 0, j = size / 2, k;
+    size_t i = 0, j = size / 2, k;
     for (k = 0; i < size / 2 && j < size; k++) {
         if (nums[i] < nums[j]) {
             mergedNums[k] = nums[i];
