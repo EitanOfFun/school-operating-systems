@@ -2,3 +2,8 @@
 !*/
 playground/
 !*/*.c
+!*/*.h
+!*/Makefile
+!*/readme
+!*/README
+!*/Readme

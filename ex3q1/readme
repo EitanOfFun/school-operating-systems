@@ -1,0 +1,100 @@
+eitanst
+Eitan Sternlicht, 204070635
+
+ReadMe
+======
+
+Program Description:
+The exercises 3 and 4 focus on sorting an array using different paralellism methods the main algorithm used in all methods is the merge sort algorithm.
+q1 uses shared memeory (e.g. storing the array in global shared memory and creating sub-processes to sort each portion)
+q2 uses sockets.
+We create a server and a client program.
+The server is in charge of spliting the array into portions, and sending to each client that connects to it it's portion to sort.
+Once all the clients return the sorted portions, it then merges them all into one sorted array
+
+
+Compile
+=======
+```
+make
+```
+
+Run
+===
+./ex3q1 input.txt
+./ex3q2s input.txt 1116
+./ex3q2c localhost 1116
+
+Files
+=====
+ex3q1.c
+ex3q2s.c
+ex3q2c.c
+Makefile
+readme
+
+
+Functions
+=========
+
+/**
+ * Simple merge sort algorithm to sort each portion of array (not in parallel)
+ * @param nums array
+ * @param size of array
+ */
+void myRecSort(int *nums, size_t size)
+/**
+ * Simple merge algorithm (special case of arrays who are of size = x^2)
+ * Merges to halves of an array (which are already sorted)
+ * @param nums array to merge
+ * @param size
+ */
+void myMerge(int *nums, size_t size)
+/**
+ *
+ * @param nums
+ * @param size
+ * @param splitLevel
+ */
+void myParRecMerge(int *nums, size_t size, int splitLevel)
+/**
+ * Parallel Merge sort algorithm using fork() for every portion of array
+ * @param nums array to sort
+ * @param size size of array to sort
+ * @param splitLevel amount of process and portions of array to split array into
+ */
+void myParMergeSort(int *nums, size_t size, int splitLevel)
+/**
+ * Helper function (like a ctor) for generating Shared Memory struct with all data needed
+ * @param path used for generating ftok()
+ * @param c used for generating ftok()
+ * @param permissions of shared memory array
+ * @param size of shared memory array
+ * @return Shm struct
+ */
+Shm mallocShm(const char* path, char c, int permissions, size_t size)
+/**
+ * Helper function to delete the Shm
+ * @param s
+ */
+void deleteShm(Shm s)
+/**
+ * Helper function to clear the Shm
+ * @param s
+ */
+void clearShm(Shm s)
+/**
+ * Helper function to create the ParallelSortableArray struct from a file in the format of
+ * <array size>
+ * <parallelLevel>
+ * <nums> (Array of ints)
+ * @param fileName
+ * @return ParallelSortableArray
+ */
+ParallelSortableArray getPArrFromFile(const char *fileName)
+/**
+ * Helper function to get IP address as a string
+ * @param cli_addr
+ * @return
+ */
+char *getIPAddress(struct sockaddr_in *cli_addr)

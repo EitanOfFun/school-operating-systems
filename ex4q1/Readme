@@ -1,0 +1,76 @@
+eitanst
+Eitan Sternlicht, 204070635
+
+ReadMe
+======
+
+Program Description:
+Exercise 4 focus on sorting an array using thread paralellism method the main algorithm used is the merge sort algorithm.
+We create threads based on the degree of paralellism specified by the user and 
+send a portion of the array to each thread.
+Each thread then sorts it's designated portion.
+Once all threads are done, the main threads merges all sub sorted portions into the 
+final sorted array and prints it.
+
+
+Compile
+=======
+```
+make
+```
+
+Run
+===
+./ex4q1 input.txt
+
+Files
+=====
+ex4q1.c
+Makefile
+readme
+
+
+Functions
+=========
+/**
+ * Simple merge algorithm (special case of arrays who are of size = x^2)
+ * Merges to halves of an array (which are already sorted)
+ * @param nums array to merge
+ * @param size
+ */
+void myMerge(int *nums, size_t size)
+/**
+ *
+ * @param nums
+ * @param size
+ * @param splitLevel
+ */
+void myParRecMerge(int *nums, size_t size, int splitLevel)
+/**
+ * Simple merge sort algorithm to sort each portion of array (not in parallel)
+ * @param nums array
+ * @param size of array
+ */
+void myRecSort(int *nums, size_t size)
+/**
+ * Sorting function to send to each thread
+ * @param p  ArrAndSize
+ * @return
+ */
+void* sort(void *p)	
+/**
+ * Parallel Merge sort algorithm using threads for every portion of array
+ * @param nums array to sort
+ * @param size size of array to sort
+ * @param splitLevel amount of threads and portions of array to split array into
+ */
+void myParMergeSort(ParallelSortableArray pArr, pthread_t *threads)
+/**
+ * Helper function to create the ParallelSortableArray struct from a file in the format of
+ * <array size>
+ * <parallelLevel>
+ * <nums> (Array of ints)
+ * @param fileName
+ * @return ParallelSortableArray
+ */
+ParallelSortableArray getPArrFromFile(const char *fileName)

@@ -113,8 +113,6 @@ void myRecSort(int *nums, size_t size) {
  * @return
  */
 void* sort(void *p) {
-//    int pthreadid = pthread_self();
-//    printf("\npid: %d\n", pthreadid);
     ArrAndSize* arrAndSize = (ArrAndSize*)p;
     myRecSort(arrAndSize->nums, arrAndSize->size);
     free(arrAndSize);
