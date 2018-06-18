@@ -7,6 +7,15 @@
 
 frame_manager fm; // global frame manager
 
+/**
+ * Initializes the system
+ * @param exe_file_name executable file name
+ * @param swap_file_name swap file name to create
+ * @param text_size size in bytes of program's instructions
+ * @param data_bss_size size in bytes of program's data / bss
+ * @param heap_stack_size size in bytes of program's heap
+ * @return
+ */
 struct sim_database* init_system(char exe_file_name[], char swap_file_name[], int text_size, int data_bss_size, int heap_stack_size) {
     struct sim_database* mem_sim = (struct sim_database*)malloc(sizeof(struct sim_database*));
     mem_sim->text_size = text_size;
@@ -15,7 +24,7 @@ struct sim_database* init_system(char exe_file_name[], char swap_file_name[], in
     mem_sim->program_fd = open(exe_file_name, O_RDONLY);
 
     if (mem_sim->program_fd != -1) {
-        mem_sim->swapfile_fd = open(swap_file_name, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+        mem_sim->swapfile_fd = open(swap_file_name, O_CREAT | O_TRUNC | O_RDWR, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
         if (mem_sim->swapfile_fd != 1) {
             for (int i = 0; i < MEMORY_SIZE; ++i)
                 mem_sim->main_memory[i] = '0';
@@ -40,10 +49,17 @@ struct sim_database* init_system(char exe_file_name[], char swap_file_name[], in
     // initialize global frame manager
     fm.current_frame = 0;
     for (int i = 0; i < MEMORY_SIZE / PAGE_SIZE; ++i)
-        fm.frame_to_page[i] = -1;
+        fm.frame_to_page[i] = -1; // set all pages to -1 (aka no page stored in frame i)
 
     return mem_sim;
 }
+/**
+ * loads the page from page table and into RAM (if it's not there already)
+ * and returns the char at the address given
+ * @param mem_sim simulated memory
+ * @param address to load
+ * @return char at address
+ */
 char load(struct sim_database *mem_sim, int address) {
     const int page = address / PAGE_SIZE;
     const int offset = address % PAGE_SIZE;
@@ -98,35 +114,69 @@ char load(struct sim_database *mem_sim, int address) {
         return mem_sim->main_memory[index];
     }
 }
+/**
+ * loads the page from page table and into RAM (if it's not there already)
+ * and writes the value at the address given
+ * @param mem_sim simulated memory
+ * @param address to store value in
+ * @param value to store at address location
+ */
 void store(struct sim_database* mem_sim, int address, char value) {
     const int page = address / PAGE_SIZE;
     const int offset = address % PAGE_SIZE;
 
-    if (is_address_invalid(mem_sim, address)) {
+    if (is_address_invalid(mem_sim, address)) { // not a valid address (too high or negative)
         error("Invalid Address!\n");
         return;
     }
-    if (mem_sim->page_table[page].P == 0) {
-        error("Cannot write over code!\n");
+    if (mem_sim->page_table[page].P == 0) { // cannot write to text area addresses
+        error("Access Denied!\n");
         return;
     }
     if (mem_sim->page_table[page].V != 1)
-        load(mem_sim, address);
-    mem_sim->main_memory[mem_sim->page_table[page].frame * PAGE_SIZE + offset] = value;
-    mem_sim->page_table[page].D = 1;
+        load(mem_sim, address); // use load to load addresses page into memory
+    mem_sim->main_memory[mem_sim->page_table[page].frame * PAGE_SIZE + offset] = value; // set value in main_memory at specified address to new value
+    mem_sim->page_table[page].D = 1; // after setting value, set dirty bit to 1
 }
+/**
+ * helper function to get next available frame from frame manager (loops over array with modulo of array length)
+ * e.g. if number of frames in memory is 4 then:
+ * current frame will loop from 0 1 2 3 0 1 2 3 0 ... and so on
+ * this function returns the next index in this series.
+ * e.g. if current frame is 3 from previous example: this function return 0
+ *      if current frame is 0 from previous example: this function return 1
+ *  ... and so on
+ * @param frameManager
+ * @return
+ */
 ssize_t get_next_frame(frame_manager* frameManager) {
     return (frameManager->current_frame + 1) % (MEMORY_SIZE / PAGE_SIZE);
 }
+/**
+ * helper function that prints msg to stderr and flushes stderr
+ * @param msg
+ */
 void error(const char* msg) {
     fprintf(stderr, "%s", msg);
     fflush(stderr);
 }
+/**
+ * checks bounds of address (not negative and within bounds of processes total memory address
+ * @param mem_sim
+ * @param address
+ * @return true if address in out of bounds
+ */
 bool is_address_invalid(struct sim_database *mem_sim, int address) {
     return address < 0 || address >= mem_sim->text_size + mem_sim->data_bss_size + mem_sim->heap_stack_size;
 }
+/**
+ * helper function that checks if page is in data / bss section (above text but under heap section)
+ * @param mem_sim
+ * @param page
+ * @return
+ */
 bool is_data_bss(struct sim_database *mem_sim, int page) {
-    return page >= mem_sim->text_size && page < mem_sim->text_size + mem_sim->data_bss_size;
+    return page * PAGE_SIZE >= mem_sim->text_size && page * PAGE_SIZE < mem_sim->text_size + mem_sim->data_bss_size;
 }
 bool copy_page_from_file(int fd, int page, char *page_data) {
     lseek(fd, page * PAGE_SIZE, SEEK_SET);
@@ -137,6 +187,10 @@ bool copy_page_from_file(int fd, int page, char *page_data) {
     }
     return true;
 }
+/**
+ * initialized data (char array) full of zeros (PAGE_SIZE 0's)
+ * @param data
+ */
 void init_new_page(char* data) {
     for (int i = 0; i < PAGE_SIZE; ++i)
         data[i] = '0';
