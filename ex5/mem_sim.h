@@ -40,6 +40,7 @@ void error(const char* msg);
 bool is_address_invalid(struct sim_database *mem_sim, int address);
 bool is_data_bss(struct sim_database *mem_sim, int page);
 bool copy_page_from_file(int fd, int page, char *page_data);
-void init_new_page(char* data);
+bool copy_page_to_file(int fd, int page, char *page_data);
+bool init_new_page(char* page_data);
 
 #endif //MEM_SIM_H
