@@ -134,14 +134,12 @@ void store(struct sim_database* mem_sim, int address, char value) {
         error("Access Denied!");
         return;
     }
-    if (mem_sim->page_table[page].V != 1) {
-        char val = load(mem_sim, address); // use load to load addresses page into memory
-        if (val != '\0') {
-            mem_sim->main_memory[mem_sim->page_table[page].frame * PAGE_SIZE +
-                                 offset] = value; // set value in main_memory at specified address to new value
-            mem_sim->page_table[page].D = 1; // after setting value, set dirty bit to 1
-        }
-    }
+    if (mem_sim->page_table[page].V == 0)
+        if (load(mem_sim, address) == '\0') // use load to load addresses page into memory
+            return;
+    mem_sim->main_memory[mem_sim->page_table[page].frame * PAGE_SIZE +
+                         offset] = value; // set value in main_memory at specified address to new value
+    mem_sim->page_table[page].D = 1; // after setting value, set dirty bit to 1
 }
 /**
  * helper function to get next available frame from frame manager (loops over array with modulo of array length)
