@@ -3,6 +3,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <assert.h>
 #include "mem_sim.h"
 
 frame_manager fm; // global frame manager
@@ -16,8 +17,13 @@ frame_manager fm; // global frame manager
  * @param heap_stack_size size in bytes of program's heap
  * @return
  */
-struct sim_database* init_system(char exe_file_name[], char swap_file_name[], int text_size, int data_bss_size, int heap_stack_size) {
-    struct sim_database* mem_sim = (struct sim_database*)malloc(sizeof(struct sim_database*));
+sim_database* init_system(char exe_file_name[], char swap_file_name[], int text_size, int data_bss_size, int heap_stack_size) {
+    if (exe_file_name == NULL || swap_file_name == NULL) {
+        fprintf(stderr, "NULL as SWAP filename or Exec filename\n");
+        exit(EXIT_FAILURE);
+    }
+    sim_database* mem_sim = (sim_database*)malloc(sizeof(sim_database));
+    assert(mem_sim != NULL);
     mem_sim->text_size = text_size;
     mem_sim->data_bss_size = data_bss_size;
     mem_sim->heap_stack_size = heap_stack_size;
@@ -63,7 +69,7 @@ struct sim_database* init_system(char exe_file_name[], char swap_file_name[], in
  * @param address to load
  * @return char at address
  */
-char load(struct sim_database *mem_sim, int address) {
+char load(sim_database *mem_sim, int address) {
     const int page = address / PAGE_SIZE;
     const int offset = address % PAGE_SIZE;
 
@@ -122,7 +128,7 @@ char load(struct sim_database *mem_sim, int address) {
  * @param address to store value in
  * @param value to store at address location
  */
-void store(struct sim_database* mem_sim, int address, char value) {
+void store(sim_database* mem_sim, int address, char value) {
     const int page = address / PAGE_SIZE;
     const int offset = address % PAGE_SIZE;
 
@@ -169,7 +175,7 @@ void error(const char* msg) {
  * @param address
  * @return true if address in out of bounds
  */
-bool is_address_invalid(struct sim_database *mem_sim, int address) {
+bool is_address_invalid(sim_database *mem_sim, int address) {
     return address < 0 || address >= mem_sim->text_size + mem_sim->data_bss_size + mem_sim->heap_stack_size;
 }
 /**
@@ -178,7 +184,7 @@ bool is_address_invalid(struct sim_database *mem_sim, int address) {
  * @param page
  * @return
  */
-bool is_data_bss(struct sim_database *mem_sim, int page) {
+bool is_data_bss(sim_database *mem_sim, int page) {
     return page * PAGE_SIZE >= mem_sim->text_size && page * PAGE_SIZE < mem_sim->text_size + mem_sim->data_bss_size;
 }
 /**
@@ -252,7 +258,7 @@ void print_page_table(sim_database* mem_sim) {
         mem_sim->page_table[i].P, mem_sim->page_table[i].frame);
     }
 }
-void clear_system(struct sim_database * mem_sim) {
+void clear_system(sim_database * mem_sim) {
     if (mem_sim->program_fd != -1)
         close(mem_sim->program_fd);
     if (mem_sim->swapfile_fd)

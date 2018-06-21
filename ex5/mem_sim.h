@@ -22,6 +22,7 @@ typedef struct sim_database {
     int data_bss_size;
     int heap_stack_size;
 } sim_database;
+
 typedef struct frame_manager {
     ssize_t current_frame;
     int frame_to_page[MEMORY_SIZE / PAGE_SIZE];
