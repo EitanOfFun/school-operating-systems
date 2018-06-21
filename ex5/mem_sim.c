@@ -222,28 +222,35 @@ bool init_new_page(char* page_data) {
         page_data[i] = '0';
     return true;
 }
-void print_memory(struct sim_database * mem_sim) {
+void print_memory(sim_database* mem_sim) {
+    int i;
     printf("\n Physical memory\n");
-    for(int i = 0; i < MEMORY_SIZE; i++)
+
+    for(i = 0; i < MEMORY_SIZE; i++) {
         printf("[%c]\n", mem_sim->main_memory[i]);
+    }
 }
-void print_swap (struct sim_database * mem_sim) {
+void print_swap(sim_database* mem_sim) {
     char str[PAGE_SIZE];
+    int i;
     printf("\n Swap memory\n");
     lseek(mem_sim->swapfile_fd, 0, SEEK_SET); // go to the start of the file
     while(read(mem_sim->swapfile_fd, str, PAGE_SIZE) == PAGE_SIZE) {
-        for(int i = 0; i < PAGE_SIZE; i++)
+        for(i = 0; i < PAGE_SIZE; i++) {
             printf("[%c]\t", str[i]);
+        }
         printf("\n");
     }
 }
-void print_page_table(struct sim_database * mem_sim) {
+void print_page_table(sim_database* mem_sim) {
+    int i;
     printf("\n page table \n");
     printf("Valid\t Dirty\t Permission \t Frame\n");
-    for (int i = 0; i < NUM_OF_PAGES; i++)
+    for(i = 0; i < NUM_OF_PAGES; i++) {
         printf("[%d]\t[%d]\t[%d]\t[%d]\n", mem_sim->page_table[i].V,
                mem_sim->page_table[i].D,
-               mem_sim->page_table[i].P, mem_sim->page_table[i].frame);
+        mem_sim->page_table[i].P, mem_sim->page_table[i].frame);
+    }
 }
 void clear_system(struct sim_database * mem_sim) {
     if (mem_sim->program_fd != -1)
